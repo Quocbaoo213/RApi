@@ -1,0 +1,21 @@
+use std::collections::HashMap;
+use std::time::Duration;
+use crate::core::contract::response::ApiResult;
+use crate::core::security::cipher::xor_enc;
+use super::TimelineEndpoint;
+
+impl TimelineEndpoint {
+    pub fn add_poll_option(&self, poll_id: i64, option: &str, auto_vote: bool, existing_option_ids: i64, timeout: Option<Duration>) -> Result<ApiResult, String> {
+        let to = timeout.unwrap_or(Duration::from_secs(4));
+        let mut payload = HashMap::new();
+        payload.insert("action".to_string(), serde_json::Value::String("addPollOption".to_string()));
+        payload.insert("pollId".to_string(), serde_json::Value::from(poll_id));
+        payload.insert("option".to_string(), serde_json::Value::String(option.to_string()));
+        payload.insert("autoVote".to_string(), serde_json::Value::Bool(auto_vote));
+        payload.insert("existingOptionIds".to_string(), serde_json::Value::from(existing_option_ids));
+        let b = serde_json::to_vec(&payload).map_err(|e| e.to_string())?;
+        let uid = self.ctx.connection.as_ref().map(|c| c.uid).unwrap_or(0);
+        let enc = xor_enc(&b, uid, None);
+        self.ctx.send_socket_packet(100, 0, 1, 1, &enc, true, to)
+    }
+}
